@@ -47,6 +47,18 @@ The first run creates a `.venv/` and installs ERMESS in editable mode, so your c
 
 Without a file argument, `ERMESS_Pro.py` opens a file dialog instead.
 
+Headless, from any directory:
+
+```bash
+ERMESS_POOL_SIZE=2 uv run --project /path/to/ERMESS python /path/to/ERMESS/ERMESS_Pro.py \
+  --input in.xlsx --output out.xlsx [--generations N]
+```
+
+- `--generations N` overrides the PRO generation count of the workbook.
+- `ERMESS_POOL_SIZE` caps every multiprocessing pool (one process per CPU when unset).
+- Each generation prints `ERMESS_PROGRESS generation=<n> best_fitness=<f>` on stdout.
+- Exit 0 when the output workbook is written; 2 with a last stderr line `ERMESS_INPUT_ERROR: <message>` when the input cannot be loaded, validated or parsed; 1 on any other failure.
+
 ## Scripts
 
 ERMESS_Pro.py : runs the PRO optimization mode (Basic Usage/Examples/Experiments).
