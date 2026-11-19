@@ -13,6 +13,11 @@ from ERMESS_scripts.evolutionnary_core import ERMESS_functions_pro as Efp
 
 from ERMESS_scripts.data.indices import DISCRETE_MODEL
 
+def _nanmin_fitness(pop):
+    """Best (lowest) fitness of a population, ignoring NaN; nan if all are NaN."""
+    fitnesses = np.array([ind.fitness for ind in pop], dtype=float)
+    return float(np.nanmin(fitnesses)) if np.any(~np.isnan(fitnesses)) else float("nan")
+
 # genetic algorithm
 def evolutionnary_algorithm_research(inputs):
    """
@@ -178,8 +183,7 @@ def evolutionnary_algorithm_pro(inputs):
 
  # enumerate generations
    for gen in range(n_iter):
-     print(gen," ",best.fitness)
-           
+
                   
  #if needed, calculation of the diversity   
      diversity = Efp.compute_diversity_pro(fitnesses)
@@ -242,6 +246,8 @@ def evolutionnary_algorithm_pro(inputs):
            
      if (random_elitism_prob[gen]<Context.hyperparameters_pro.elitism_probability):
          pop[random_elitism_choice[gen]]=Efp.Individual_pro.copy(best)
+
+     print(f"ERMESS_PROGRESS generation={gen+1} best_fitness={_nanmin_fitness(pop)}", flush=True)
     #On introduit de l'élitisme
    del pop[np.random.randint(len(pop))]
    pop.append(best)

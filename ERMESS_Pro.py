@@ -24,11 +24,12 @@ Modules used:
 
 """
 
+import argparse
+import os
 import sys
 import numpy as np
 from multiprocessing import freeze_support
 import warnings
-from tkinter import filedialog
 import logging
 
 from ERMESS_scripts.data import data_reader as Edr
@@ -44,26 +45,39 @@ from ERMESS_scripts.reporting import post_processing as Epp
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 
-def ERMESS_pro(input_file_path=None) :
-    
-    freeze_support()  
+class ERMESSInputError(Exception):
+    """Raised when the input workbook cannot be loaded, validated or parsed."""
+
+
+def ERMESS_pro(input_file_path=None, output_file_path=None, generations=None) :
+
+    freeze_support()
     ##============================================================================
     # 1. INPUT DATA LOADING
     ##============================================================================
-    
+
     if input_file_path is None:
+        from tkinter import filedialog
         input_file_path = filedialog.askopenfilename(filetypes =[('Excel Files', '*.xlsx')], initialdir="#Specify the file path")
 
-    data = Edr.load_excel(input_file_path)
-    Edv._data_validation(data)
-    structured_data = Edp._parse_ERMESSInputs(data)
+    try:
+        data = Edr.load_excel(input_file_path)
+        Edv._data_validation(data)
+        structured_data = Edp._parse_ERMESSInputs(data)
+    except Exception as exc:
+        raise ERMESSInputError(f"{type(exc).__name__}: {exc}") from exc
+
+    if generations is not None:
+        structured_data.hyperparameterspro.n_iter = np.int64(generations)
 
     ##============================================================================
     # 2. ENVIRONMENT INITIALIZATION
     ##============================================================================
-          
+
     Context=Dbl.build_environment(structured_data)
-            
+    if output_file_path is not None:
+        Context.postprocess_config.file_name = output_file_path
+
     ##============================================================================
     # 3. PRO OPTIMIZATION (SIMULATING EMS DISPATCHING)
     ##============================================================================  
@@ -75,11 +89,32 @@ def ERMESS_pro(input_file_path=None) :
         (Final_population,perf_ope) = EA.evolutionnary_algorithm_pro(args_pro) 
         scores=tuple(ind.fitness for ind in Final_population)
         best=Final_population[np.nanargmin(scores)]
-        Epp.post_traitement(solution=best, Context=Context, datetime=structured_data.time.datetime)    
-        
+        Epp.post_traitement(solution=best, Context=Context, datetime=structured_data.time.datetime)
+    return Context.postprocess_config.file_name
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Run the ERMESS PRO optimisation.")
+    parser.add_argument("input", nargs="?", help="input workbook (legacy positional form)")
+    parser.add_argument("--input", dest="input_flag", help="input workbook (.xlsx)")
+    parser.add_argument("--output", help="output workbook path (default: the workbook's Outputs sheet)")
+    parser.add_argument("--generations", type=int, help="override the PRO generation count of the workbook")
+    args = parser.parse_args(argv)
+    input_path = args.input_flag or args.input
+    if args.generations is not None and args.generations < 1:
+        parser.error("--generations must be >= 1")
+
+    try:
+        output_path = ERMESS_pro(input_path, args.output, args.generations)
+    except ERMESSInputError as exc:
+        print(f"ERMESS_INPUT_ERROR: {exc}".replace("\n", " "), file=sys.stderr, flush=True)
+        return 2
+    if not output_path or not os.path.isfile(output_path):
+        print(f"ERMESS: no output workbook written at {output_path}", file=sys.stderr, flush=True)
+        return 1
+    return 0
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        ERMESS_pro(sys.argv[1])
-    else:
-        ERMESS_pro()
+    sys.exit(main())
         
