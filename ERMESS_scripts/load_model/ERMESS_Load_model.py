@@ -373,6 +373,7 @@ def hvac_load(occupancy, n_steps, dt, comfort_params,comfort_temp, meteoData):
             - heating electrical load (kW)
     """
 
+    occupancy = np.asarray(occupancy)  # positional access below; a DatetimeIndex Series raises KeyError on occupancy[t]
     T_in = np.zeros(n_steps)
     T_in[0] = (np.mean(meteoData["temp_air"])*3/4 + meteoData["temp_air"].iloc[0]/4)
     
